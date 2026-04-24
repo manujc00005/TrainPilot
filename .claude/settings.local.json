@@ -21,7 +21,10 @@
       "Bash(npx tsx *)",
       "Bash(git add *)",
       "Bash(git commit -m ' *)",
-      "Bash(git push *)"
+      "Bash(git push *)",
+      "Bash(flyctl secrets *)",
+      "PowerShell(flyctl secrets list 2>&1)",
+      "PowerShell(fly secrets list 2>&1)"
     ]
   }
 }

@@ -93,3 +93,4 @@ vite.config.ts.timestamp-*
 # Project-specific
 data/*.db
 data/*.json
+.claude/settings.local.json
