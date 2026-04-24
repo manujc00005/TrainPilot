@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:mcpservers.com)",
+      "WebFetch(domain:composio.dev)",
+      "WebFetch(domain:www.reddit.com)",
+      "WebFetch(domain:github.com)"
+    ]
+  }
+}
