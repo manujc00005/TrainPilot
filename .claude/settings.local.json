@@ -18,7 +18,10 @@
       "Bash(npx vitest *)",
       "Bash(npx tsx -e ' *)",
       "Bash(cd /d D:\\\\Strava-Coach)",
-      "Bash(npx tsx *)"
+      "Bash(npx tsx *)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)"
     ]
   }
 }
