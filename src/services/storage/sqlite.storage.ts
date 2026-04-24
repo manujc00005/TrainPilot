@@ -28,18 +28,32 @@ export class SqliteStorage implements IStorage {
         sport TEXT NOT NULL,
         start_date TEXT NOT NULL,
         name TEXT NOT NULL,
+        description TEXT,
         distance_meters REAL NOT NULL,
         moving_time_seconds INTEGER NOT NULL,
         elapsed_time_seconds INTEGER NOT NULL,
         total_elevation_gain_meters REAL NOT NULL,
+        elev_high_meters REAL,
+        elev_low_meters REAL,
         average_speed_ms REAL NOT NULL,
+        max_speed_ms REAL,
         average_pace_secs_per_km REAL,
         average_heart_rate REAL,
         max_heart_rate REAL,
         average_cadence REAL,
         average_watts REAL,
+        max_watts REAL,
+        weighted_average_watts REAL,
+        kilojoules REAL,
+        calories REAL,
         suffer_score REAL,
         perceived_exertion REAL,
+        workout_type INTEGER,
+        is_trainer INTEGER NOT NULL DEFAULT 0,
+        is_commute INTEGER NOT NULL DEFAULT 0,
+        gear_id TEXT,
+        pr_count INTEGER,
+        achievement_count INTEGER,
         raw_hash TEXT UNIQUE NOT NULL,
         weather_temp_celsius REAL,
         raw JSON NOT NULL,
@@ -50,26 +64,26 @@ export class SqliteStorage implements IStorage {
         ON activities(athlete_id, start_date);
     `);
 
-    // Column migrations — safe to run multiple times (IF NOT EXISTS)
+    // Column migrations for existing databases — catch swallows "duplicate column" errors safely
     const newColumns = [
-      'ALTER TABLE activities ADD COLUMN IF NOT EXISTS description TEXT',
-      'ALTER TABLE activities ADD COLUMN IF NOT EXISTS elev_high_meters REAL',
-      'ALTER TABLE activities ADD COLUMN IF NOT EXISTS elev_low_meters REAL',
-      'ALTER TABLE activities ADD COLUMN IF NOT EXISTS max_speed_ms REAL',
-      'ALTER TABLE activities ADD COLUMN IF NOT EXISTS max_heart_rate REAL',
-      'ALTER TABLE activities ADD COLUMN IF NOT EXISTS max_watts REAL',
-      'ALTER TABLE activities ADD COLUMN IF NOT EXISTS weighted_average_watts REAL',
-      'ALTER TABLE activities ADD COLUMN IF NOT EXISTS kilojoules REAL',
-      'ALTER TABLE activities ADD COLUMN IF NOT EXISTS calories REAL',
-      'ALTER TABLE activities ADD COLUMN IF NOT EXISTS workout_type INTEGER',
-      'ALTER TABLE activities ADD COLUMN IF NOT EXISTS is_trainer INTEGER NOT NULL DEFAULT 0',
-      'ALTER TABLE activities ADD COLUMN IF NOT EXISTS is_commute INTEGER NOT NULL DEFAULT 0',
-      'ALTER TABLE activities ADD COLUMN IF NOT EXISTS gear_id TEXT',
-      'ALTER TABLE activities ADD COLUMN IF NOT EXISTS pr_count INTEGER',
-      'ALTER TABLE activities ADD COLUMN IF NOT EXISTS achievement_count INTEGER',
+      'ALTER TABLE activities ADD COLUMN description TEXT',
+      'ALTER TABLE activities ADD COLUMN elev_high_meters REAL',
+      'ALTER TABLE activities ADD COLUMN elev_low_meters REAL',
+      'ALTER TABLE activities ADD COLUMN max_speed_ms REAL',
+      'ALTER TABLE activities ADD COLUMN max_heart_rate REAL',
+      'ALTER TABLE activities ADD COLUMN max_watts REAL',
+      'ALTER TABLE activities ADD COLUMN weighted_average_watts REAL',
+      'ALTER TABLE activities ADD COLUMN kilojoules REAL',
+      'ALTER TABLE activities ADD COLUMN calories REAL',
+      'ALTER TABLE activities ADD COLUMN workout_type INTEGER',
+      'ALTER TABLE activities ADD COLUMN is_trainer INTEGER NOT NULL DEFAULT 0',
+      'ALTER TABLE activities ADD COLUMN is_commute INTEGER NOT NULL DEFAULT 0',
+      'ALTER TABLE activities ADD COLUMN gear_id TEXT',
+      'ALTER TABLE activities ADD COLUMN pr_count INTEGER',
+      'ALTER TABLE activities ADD COLUMN achievement_count INTEGER',
     ];
     for (const sql of newColumns) {
-      try { this.db.exec(sql); } catch { /* column already exists in older SQLite */ }
+      try { this.db.exec(sql); } catch { /* column already exists — expected on existing DBs */ }
     }
 
     this.db.exec(`
