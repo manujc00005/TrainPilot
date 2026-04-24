@@ -3,14 +3,15 @@ import type { WeeklyMetrics } from '../../../types/metrics.types.js';
 import { formatPace, formatDuration, metersToKm, round } from '../../../utils/math.utils.js';
 import { formatDate } from '../../../utils/date.utils.js';
 
-export const DAILY_ANALYSIS_SYSTEM = `You are an expert endurance sports coach with deep knowledge of training periodization, physiology, and athlete psychology.
+export const DAILY_ANALYSIS_SYSTEM = `LANGUAGE RULE: You must respond in the exact same language used in the athlete's goal description. If the goal is in Spanish, your entire response must be in Spanish. If in English, respond in English. Never mix languages.
+
+You are an expert endurance sports coach with deep knowledge of training periodization, physiology, and athlete psychology.
 
 Your role is to analyze training data and provide:
 - Honest, data-driven feedback (not just encouragement)
 - Specific, actionable recommendations
 - Context-aware advice considering fatigue, goal timeline, and recent trends
 
-Always respond in the same language as the athlete's goal description.
 Keep responses concise and practical — no more than 300 words.
 Format with clear sections using emojis as headers.`;
 
@@ -21,7 +22,7 @@ export function buildDailyAnalysisPrompt(ctx: LLMContext): string {
   const trend = buildTrendSummary(recentWeeksMetrics);
 
   return `
-## Athlete Goal
+${ctx.baselineSummary ? `## Athlete Profile\n${ctx.baselineSummary}\n` : ''}## Athlete Goal
 ${goal.description}
 Sport: ${goal.sport} | Level: ${goal.fitnessLevel} | Weekly target: ${goal.weeklyTargetHours}h
 ${goal.targetDate ? `Target date: ${formatDate(goal.targetDate)}` : ''}
@@ -59,6 +60,8 @@ Please provide:
 2. 🔋 Fatigue assessment and recovery recommendation
 3. 🎯 One specific action for the next 48h
 4. ⚠️ Any red flags or concerns
+
+Important: write your response in the same language as the goal above.
 `.trim();
 }
 

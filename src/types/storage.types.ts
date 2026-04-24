@@ -3,6 +3,7 @@ import type { WeeklyMetrics } from './metrics.types.js';
 import type { TrainingGoal, PlannedSession } from './plan.types.js';
 import type { StravaTokens } from './strava.types.js';
 import type { LLMLogEntry } from './llm.types.js';
+import type { AthleteBaseline } from './baseline.types.js';
 
 export interface IStorage {
   // Lifecycle
@@ -38,4 +39,8 @@ export interface IStorage {
   // User feedback (subjective fatigue via Telegram)
   saveSubjectiveFatigue(athleteId: string, date: Date, score: number): Promise<void>;
   getSubjectiveFatigue(athleteId: string, date: Date): Promise<number | null>;
+
+  // Athlete baseline (onboarding fingerprint)
+  saveBaseline(baseline: AthleteBaseline): Promise<void>;
+  getBaseline(athleteId: string): Promise<AthleteBaseline | null>;
 }

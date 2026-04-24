@@ -8,4 +8,10 @@ export interface NotificationPayload {
 
 export interface NotificationProvider {
   send(payload: NotificationPayload): Promise<void>;
+  /** Parse an inbound webhook update into a typed message, or null if irrelevant */
+  handleUpdate?(update: unknown): Promise<InboundMessage | null>;
 }
+
+export type InboundMessage =
+  | { type: 'fatigue'; score: string }
+  | { type: 'chat'; text: string };

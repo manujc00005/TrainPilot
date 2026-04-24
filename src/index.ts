@@ -2,6 +2,7 @@ import express from 'express';
 import { config } from './config/index.js';
 import { getStorage } from './services/storage/index.js';
 import { startScheduler, stopScheduler } from './jobs/scheduler.js';
+import { runOnboarding } from './jobs/onboarding.job.js';
 import { router } from './routes/index.js';
 import { requestLogger } from './middleware/logger.middleware.js';
 import { errorHandler } from './middleware/error.middleware.js';
@@ -40,10 +41,15 @@ async function bootstrap() {
     logger.info({ port: config.PORT }, 'strava-coach server started');
   });
 
-  // 4. Start cron scheduler
+  // 4. Run onboarding if no baseline exists (non-blocking — errors logged, not fatal)
+  runOnboarding().catch((err) => {
+    logger.warn({ err }, 'Onboarding failed — will retry via /api/status/run/onboarding');
+  });
+
+  // 5. Start cron scheduler
   startScheduler();
 
-  // 5. Graceful shutdown
+  // 6. Graceful shutdown
   const shutdown = async () => {
     logger.info('Shutting down...');
     stopScheduler();

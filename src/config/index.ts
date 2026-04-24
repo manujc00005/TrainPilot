@@ -13,10 +13,11 @@ const schema = z.object({
   STRAVA_REFRESH_TOKEN: z.string().min(1),
   STRAVA_ATHLETE_ID: z.string().min(1),
 
-  LLM_PROVIDER: z.enum(['claude', 'openai']).default('claude'),
+  LLM_PROVIDER: z.enum(['claude', 'openai']).default('openai'),
   ANTHROPIC_API_KEY: z.string().optional(),
   OPENAI_API_KEY: z.string().optional(),
-  LLM_MODEL: z.string().default('claude-sonnet-4-6'),
+  // If not set, defaults to the best model for the selected provider
+  LLM_MODEL: z.string().optional(),
 
   NOTIFICATION_PROVIDER: z.enum(['telegram', 'whatsapp']).default('telegram'),
   TELEGRAM_BOT_TOKEN: z.string().optional(),
@@ -44,6 +45,19 @@ function validate() {
   return result.data;
 }
 
-export const config = validate();
+const DEFAULT_MODELS: Record<string, string> = {
+  claude: 'claude-sonnet-4-6',
+  openai: 'gpt-4o-mini',
+};
+
+const _config = validate();
+
+export const config = {
+  ..._config,
+  // Resolved model: explicit LLM_MODEL env var wins, otherwise provider default
+  get LLM_MODEL(): string {
+    return _config.LLM_MODEL ?? DEFAULT_MODELS[_config.LLM_PROVIDER] ?? 'gpt-4o-mini';
+  },
+};
 
 export type AppConfig = typeof config;

@@ -1,6 +1,6 @@
 import type { Activity } from '../../types/activity.types.js';
 import type { IntensityMetrics, ZoneDistribution } from '../../types/metrics.types.js';
-import { metersToKm, secondsToHours, round } from '../../utils/math.utils.js';
+import { secondsToHours, round } from '../../utils/math.utils.js';
 
 // Simplified TSS using HR-based intensity factor when available,
 // falling back to pace-based estimation for running

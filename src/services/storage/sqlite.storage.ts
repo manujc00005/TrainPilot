@@ -8,6 +8,7 @@ import type { WeeklyMetrics } from '../../types/metrics.types.js';
 import type { TrainingGoal, PlannedSession } from '../../types/plan.types.js';
 import type { StravaTokens } from '../../types/strava.types.js';
 import type { LLMLogEntry } from '../../types/llm.types.js';
+import type { AthleteBaseline } from '../../types/baseline.types.js';
 
 export class SqliteStorage implements IStorage {
   private db: Database.Database;
@@ -47,7 +48,31 @@ export class SqliteStorage implements IStorage {
 
       CREATE INDEX IF NOT EXISTS idx_activities_athlete_date
         ON activities(athlete_id, start_date);
+    `);
 
+    // Column migrations — safe to run multiple times (IF NOT EXISTS)
+    const newColumns = [
+      'ALTER TABLE activities ADD COLUMN IF NOT EXISTS description TEXT',
+      'ALTER TABLE activities ADD COLUMN IF NOT EXISTS elev_high_meters REAL',
+      'ALTER TABLE activities ADD COLUMN IF NOT EXISTS elev_low_meters REAL',
+      'ALTER TABLE activities ADD COLUMN IF NOT EXISTS max_speed_ms REAL',
+      'ALTER TABLE activities ADD COLUMN IF NOT EXISTS max_heart_rate REAL',
+      'ALTER TABLE activities ADD COLUMN IF NOT EXISTS max_watts REAL',
+      'ALTER TABLE activities ADD COLUMN IF NOT EXISTS weighted_average_watts REAL',
+      'ALTER TABLE activities ADD COLUMN IF NOT EXISTS kilojoules REAL',
+      'ALTER TABLE activities ADD COLUMN IF NOT EXISTS calories REAL',
+      'ALTER TABLE activities ADD COLUMN IF NOT EXISTS workout_type INTEGER',
+      'ALTER TABLE activities ADD COLUMN IF NOT EXISTS is_trainer INTEGER NOT NULL DEFAULT 0',
+      'ALTER TABLE activities ADD COLUMN IF NOT EXISTS is_commute INTEGER NOT NULL DEFAULT 0',
+      'ALTER TABLE activities ADD COLUMN IF NOT EXISTS gear_id TEXT',
+      'ALTER TABLE activities ADD COLUMN IF NOT EXISTS pr_count INTEGER',
+      'ALTER TABLE activities ADD COLUMN IF NOT EXISTS achievement_count INTEGER',
+    ];
+    for (const sql of newColumns) {
+      try { this.db.exec(sql); } catch { /* column already exists in older SQLite */ }
+    }
+
+    this.db.exec(`
       CREATE TABLE IF NOT EXISTS weekly_metrics (
         id TEXT PRIMARY KEY,
         athlete_id TEXT NOT NULL,
@@ -121,6 +146,26 @@ export class SqliteStorage implements IStorage {
         created_at TEXT NOT NULL DEFAULT (datetime('now')),
         UNIQUE(athlete_id, date)
       );
+
+      CREATE TABLE IF NOT EXISTS athlete_baseline (
+        id TEXT PRIMARY KEY,
+        athlete_id TEXT UNIQUE NOT NULL,
+        period_months INTEGER NOT NULL,
+        peak_ctl REAL NOT NULL,
+        current_ctl REAL NOT NULL,
+        avg_weekly_distance_km REAL NOT NULL,
+        avg_weekly_time_hours REAL NOT NULL,
+        best_pace_secs_per_km REAL,
+        longest_activity_km REAL NOT NULL,
+        total_activities INTEGER NOT NULL,
+        consistency_score REAL NOT NULL,
+        injury_weeks INTEGER NOT NULL,
+        volume_trend TEXT NOT NULL,
+        detected_fitness_level TEXT NOT NULL,
+        summary_text TEXT NOT NULL,
+        generated_at TEXT NOT NULL,
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      );
     `);
     logger.info('SQLite storage initialized');
   }
@@ -134,17 +179,25 @@ export class SqliteStorage implements IStorage {
   async saveActivities(activities: Activity[]): Promise<void> {
     const insert = this.db.prepare(`
       INSERT OR IGNORE INTO activities (
-        id, strava_id, athlete_id, sport, start_date, name,
+        id, strava_id, athlete_id, sport, start_date, name, description,
         distance_meters, moving_time_seconds, elapsed_time_seconds,
-        total_elevation_gain_meters, average_speed_ms, average_pace_secs_per_km,
-        average_heart_rate, max_heart_rate, average_cadence, average_watts,
-        suffer_score, perceived_exertion, raw_hash, weather_temp_celsius, raw
+        total_elevation_gain_meters, elev_high_meters, elev_low_meters,
+        average_speed_ms, max_speed_ms, average_pace_secs_per_km,
+        average_heart_rate, max_heart_rate, average_cadence,
+        average_watts, max_watts, weighted_average_watts, kilojoules,
+        calories, suffer_score, perceived_exertion,
+        workout_type, is_trainer, is_commute, gear_id, pr_count, achievement_count,
+        raw_hash, weather_temp_celsius, raw
       ) VALUES (
-        @id, @strava_id, @athlete_id, @sport, @start_date, @name,
+        @id, @strava_id, @athlete_id, @sport, @start_date, @name, @description,
         @distance_meters, @moving_time_seconds, @elapsed_time_seconds,
-        @total_elevation_gain_meters, @average_speed_ms, @average_pace_secs_per_km,
-        @average_heart_rate, @max_heart_rate, @average_cadence, @average_watts,
-        @suffer_score, @perceived_exertion, @raw_hash, @weather_temp_celsius, @raw
+        @total_elevation_gain_meters, @elev_high_meters, @elev_low_meters,
+        @average_speed_ms, @max_speed_ms, @average_pace_secs_per_km,
+        @average_heart_rate, @max_heart_rate, @average_cadence,
+        @average_watts, @max_watts, @weighted_average_watts, @kilojoules,
+        @calories, @suffer_score, @perceived_exertion,
+        @workout_type, @is_trainer, @is_commute, @gear_id, @pr_count, @achievement_count,
+        @raw_hash, @weather_temp_celsius, @raw
       )
     `);
 
@@ -157,18 +210,32 @@ export class SqliteStorage implements IStorage {
           sport: a.sport,
           start_date: a.startDate.toISOString(),
           name: a.name,
+          description: a.description ?? null,
           distance_meters: a.distanceMeters,
           moving_time_seconds: a.movingTimeSeconds,
           elapsed_time_seconds: a.elapsedTimeSeconds,
           total_elevation_gain_meters: a.totalElevationGainMeters,
+          elev_high_meters: a.elevHighMeters ?? null,
+          elev_low_meters: a.elevLowMeters ?? null,
           average_speed_ms: a.averageSpeedMs,
+          max_speed_ms: a.maxSpeedMs ?? null,
           average_pace_secs_per_km: a.averagePaceSecsPerKm ?? null,
           average_heart_rate: a.averageHeartRate ?? null,
           max_heart_rate: a.maxHeartRate ?? null,
           average_cadence: a.averageCadence ?? null,
           average_watts: a.averageWatts ?? null,
+          max_watts: a.maxWatts ?? null,
+          weighted_average_watts: a.weightedAverageWatts ?? null,
+          kilojoules: a.kilojoules ?? null,
+          calories: a.calories ?? null,
           suffer_score: a.sufferScore ?? null,
           perceived_exertion: a.perceivedExertion ?? null,
+          workout_type: a.workoutType ?? null,
+          is_trainer: a.isTrainer ? 1 : 0,
+          is_commute: a.isCommute ? 1 : 0,
+          gear_id: a.gearId ?? null,
+          pr_count: a.prCount ?? null,
+          achievement_count: a.achievementCount ?? null,
           raw_hash: a.rawHash,
           weather_temp_celsius: a.weatherContext?.averageTempCelsius ?? null,
           raw: JSON.stringify(a.raw),
@@ -392,6 +459,46 @@ export class SqliteStorage implements IStorage {
       .get(athleteId, date.toISOString().split('T')[0]) as { score: number } | undefined;
     return row?.score ?? null;
   }
+
+  // ── Athlete baseline ──────────────────────────────────────
+
+  async saveBaseline(baseline: AthleteBaseline): Promise<void> {
+    this.db
+      .prepare(
+        `INSERT OR REPLACE INTO athlete_baseline (
+          id, athlete_id, period_months, peak_ctl, current_ctl,
+          avg_weekly_distance_km, avg_weekly_time_hours,
+          best_pace_secs_per_km, longest_activity_km, total_activities,
+          consistency_score, injury_weeks, volume_trend,
+          detected_fitness_level, summary_text, generated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      )
+      .run(
+        baseline.id,
+        baseline.athleteId,
+        baseline.periodMonths,
+        baseline.peakCTL,
+        baseline.currentCTL,
+        baseline.avgWeeklyDistanceKm,
+        baseline.avgWeeklyTimeHours,
+        baseline.bestPaceSecsPerKm ?? null,
+        baseline.longestActivityKm,
+        baseline.totalActivities,
+        baseline.consistencyScore,
+        baseline.injuryWeeks,
+        baseline.volumeTrend,
+        baseline.detectedFitnessLevel,
+        baseline.summaryText,
+        baseline.generatedAt.toISOString(),
+      );
+  }
+
+  async getBaseline(athleteId: string): Promise<AthleteBaseline | null> {
+    const row = this.db
+      .prepare('SELECT * FROM athlete_baseline WHERE athlete_id = ?')
+      .get(athleteId) as Record<string, unknown> | undefined;
+    return row ? rowToBaseline(row) : null;
+  }
 }
 
 // ── Row mappers ───────────────────────────────────────────────────────────────
@@ -404,18 +511,40 @@ function rowToActivity(row: Record<string, unknown>): Activity {
     sport: row.sport as Activity['sport'],
     startDate: new Date(row.start_date as string),
     name: row.name as string,
+    description: (row.description as string | null) ?? undefined,
+
     distanceMeters: row.distance_meters as number,
     movingTimeSeconds: row.moving_time_seconds as number,
     elapsedTimeSeconds: row.elapsed_time_seconds as number,
+
     totalElevationGainMeters: row.total_elevation_gain_meters as number,
+    elevHighMeters: (row.elev_high_meters as number | null) ?? undefined,
+    elevLowMeters: (row.elev_low_meters as number | null) ?? undefined,
+
     averageSpeedMs: row.average_speed_ms as number,
+    maxSpeedMs: (row.max_speed_ms as number | null) ?? undefined,
     averagePaceSecsPerKm: (row.average_pace_secs_per_km as number | null) ?? undefined,
+
     averageHeartRate: (row.average_heart_rate as number | null) ?? undefined,
     maxHeartRate: (row.max_heart_rate as number | null) ?? undefined,
-    averageCadence: (row.average_cadence as number | null) ?? undefined,
+
     averageWatts: (row.average_watts as number | null) ?? undefined,
+    maxWatts: (row.max_watts as number | null) ?? undefined,
+    weightedAverageWatts: (row.weighted_average_watts as number | null) ?? undefined,
+    kilojoules: (row.kilojoules as number | null) ?? undefined,
+
+    averageCadence: (row.average_cadence as number | null) ?? undefined,
+    calories: (row.calories as number | null) ?? undefined,
     sufferScore: (row.suffer_score as number | null) ?? undefined,
     perceivedExertion: (row.perceived_exertion as number | null) ?? undefined,
+
+    workoutType: (row.workout_type as number | null) ?? undefined,
+    isTrainer: Boolean(row.is_trainer),
+    isCommute: Boolean(row.is_commute),
+    gearId: (row.gear_id as string | null) ?? undefined,
+    prCount: (row.pr_count as number | null) ?? undefined,
+    achievementCount: (row.achievement_count as number | null) ?? undefined,
+
     rawHash: row.raw_hash as string,
     weatherContext:
       row.weather_temp_celsius != null
@@ -453,5 +582,26 @@ function rowToPlannedSession(row: Record<string, unknown>): PlannedSession {
     completed: Boolean(row.completed),
     completedActivityId: (row.completed_activity_id as string | null) ?? undefined,
     skippedReason: (row.skipped_reason as string | null) ?? undefined,
+  };
+}
+
+function rowToBaseline(row: Record<string, unknown>): AthleteBaseline {
+  return {
+    id: row.id as string,
+    athleteId: row.athlete_id as string,
+    generatedAt: new Date(row.generated_at as string),
+    periodMonths: row.period_months as number,
+    peakCTL: row.peak_ctl as number,
+    currentCTL: row.current_ctl as number,
+    avgWeeklyDistanceKm: row.avg_weekly_distance_km as number,
+    avgWeeklyTimeHours: row.avg_weekly_time_hours as number,
+    bestPaceSecsPerKm: (row.best_pace_secs_per_km as number | null) ?? undefined,
+    longestActivityKm: row.longest_activity_km as number,
+    totalActivities: row.total_activities as number,
+    consistencyScore: row.consistency_score as number,
+    injuryWeeks: row.injury_weeks as number,
+    volumeTrend: row.volume_trend as AthleteBaseline['volumeTrend'],
+    detectedFitnessLevel: row.detected_fitness_level as AthleteBaseline['detectedFitnessLevel'],
+    summaryText: row.summary_text as string,
   };
 }

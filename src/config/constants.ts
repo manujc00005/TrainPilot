@@ -25,6 +25,9 @@ export type FatigueLevel = (typeof FATIGUE_LEVELS)[number];
 export const ATL_DECAY = Math.exp(-1 / 7);   // 7-day time constant
 export const CTL_DECAY = Math.exp(-1 / 42);  // 42-day time constant
 
+// Onboarding
+export const ONBOARDING_MONTHS = 6;
+
 // TSB thresholds
 export const TSB_FRESH_THRESHOLD = 5;
 export const TSB_TIRED_THRESHOLD = -10;

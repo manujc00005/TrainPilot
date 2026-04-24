@@ -17,11 +17,12 @@ export async function runWeeklyPlanning(): Promise<void> {
   const { start: thisWeekStart } = getCurrentWeekBounds();
   const nextWeekStart = getWeekBounds(addWeeks(thisWeekStart, 1)).start;
 
-  const [activities, plannedSessions, recentWeeks, goal] = await Promise.all([
+  const [activities, plannedSessions, recentWeeks, goal, baseline] = await Promise.all([
     storage.getActivitiesByWeek(thisWeekStart, athleteId),
     storage.getPlannedSessionsByWeek(thisWeekStart, athleteId),
     storage.getRecentWeeklyMetrics(4, athleteId),
     storage.getActiveGoal(athleteId),
+    storage.getBaseline(athleteId),
   ]);
 
   if (!goal) {
@@ -39,6 +40,7 @@ export async function runWeeklyPlanning(): Promise<void> {
       recentWeeksMetrics: recentWeeks,
       plannedSessions,
       recentActivities: activities,
+      baselineSummary: baseline?.summaryText,
     },
     nextWeekStart,
   );

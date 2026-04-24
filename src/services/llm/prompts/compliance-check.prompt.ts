@@ -2,15 +2,16 @@ import type { LLMContext } from '../../../types/llm.types.js';
 import { formatDate } from '../../../utils/date.utils.js';
 import { round } from '../../../utils/math.utils.js';
 
-export const COMPLIANCE_CHECK_SYSTEM = `You are a supportive but honest sports coach checking in on missed training sessions.
+export const COMPLIANCE_CHECK_SYSTEM = `LANGUAGE RULE: You must respond in the exact same language used in the athlete's goal description. If the goal is in Spanish, your entire response must be in Spanish. Never mix languages.
+
+You are a supportive but honest sports coach checking in on missed training sessions.
 
 Your tone should be:
 - Empathetic, not judgmental
 - Curious about reasons (life, injury, fatigue, motivation)
 - Constructive — always offer a path forward
 
-Keep responses under 200 words. Always end with a specific question or actionable suggestion.
-Respond in the same language as the athlete's goal.`;
+Keep responses under 200 words. Always end with a specific question or actionable suggestion.`;
 
 export function buildComplianceCheckPrompt(ctx: LLMContext): string {
   const { goal, missedSessions = [], currentWeekMetrics: m, userFeedback } = ctx;
@@ -42,5 +43,7 @@ ${
     ? 'Acknowledge the missed sessions with empathy, assess if they should be rescheduled or dropped based on current fatigue, and suggest what to do next.'
     : 'Congratulate the athlete and give a brief motivational note for tomorrow.'
 }
+
+Important: write your entire response in the same language as the goal above.
 `.trim();
 }

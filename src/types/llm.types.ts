@@ -2,7 +2,7 @@ import type { WeeklyMetrics } from './metrics.types.js';
 import type { TrainingGoal, PlannedSession } from './plan.types.js';
 import type { Activity } from './activity.types.js';
 
-export type LLMContextType = 'daily_analysis' | 'weekly_planning' | 'compliance_check';
+export type LLMContextType = 'daily_analysis' | 'weekly_planning' | 'compliance_check' | 'baseline' | 'chat';
 
 export interface LLMContext {
   contextType: LLMContextType;
@@ -13,6 +13,8 @@ export interface LLMContext {
   recentActivities: Activity[];
   missedSessions?: PlannedSession[];
   userFeedback?: string;
+  /** Athlete baseline narrative from onboarding — injected as persistent context when available */
+  baselineSummary?: string;
 }
 
 export interface LLMResponse {

@@ -1,12 +1,13 @@
-import cron from 'node-cron';
+import cron, { type ScheduledTask } from 'node-cron';
 import { logger } from '../utils/logger.js';
 import { runDailySync } from './daily-sync.job.js';
 import { runDailyAnalysis } from './daily-analysis.job.js';
 import { runWeeklyPlanning } from './weekly-planning.job.js';
 import { runComplianceCheck } from './compliance-check.job.js';
 import { runTokenRefresh } from './token-refresh.job.js';
+import { runOnboarding } from './onboarding.job.js';
 
-export type JobName = 'daily-sync' | 'daily-analysis' | 'weekly-planning' | 'compliance-check' | 'token-refresh';
+export type JobName = 'daily-sync' | 'daily-analysis' | 'weekly-planning' | 'compliance-check' | 'token-refresh' | 'onboarding';
 
 const JOB_REGISTRY: Record<JobName, () => Promise<void>> = {
   'token-refresh': runTokenRefresh,
@@ -14,9 +15,10 @@ const JOB_REGISTRY: Record<JobName, () => Promise<void>> = {
   'daily-analysis': runDailyAnalysis,
   'weekly-planning': runWeeklyPlanning,
   'compliance-check': runComplianceCheck,
+  'onboarding': runOnboarding,
 };
 
-const tasks: cron.ScheduledTask[] = [];
+const tasks: ScheduledTask[] = [];
 
 export function startScheduler(): void {
   // Every 5 hours — keep token fresh

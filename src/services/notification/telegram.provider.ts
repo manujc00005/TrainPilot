@@ -2,7 +2,7 @@ import axios from 'axios';
 import { config } from '../../config/index.js';
 import { withRetry } from '../../utils/retry.utils.js';
 import { logger } from '../../utils/logger.js';
-import type { NotificationProvider, NotificationPayload } from '../../types/notification.types.js';
+import type { NotificationProvider, NotificationPayload, InboundMessage } from '../../types/notification.types.js';
 import { formatMessage } from './message.formatter.js';
 
 export class TelegramProvider implements NotificationProvider {
@@ -35,18 +35,18 @@ export class TelegramProvider implements NotificationProvider {
     logger.info({ type: payload.type, chunks: chunks.length }, 'Telegram message sent');
   }
 
-  // Handle user reply with subjective fatigue score (1-10)
-  // Called from webhook controller
-  async handleUpdate(update: TelegramUpdate): Promise<string | null> {
-    const text = update.message?.text?.trim();
+  async handleUpdate(update: unknown): Promise<InboundMessage | null> {
+    const { message } = update as TelegramUpdate;
+    const text = message?.text?.trim();
     if (!text) return null;
 
     const fatigueMatch = text.match(/^\/fatiga\s+([1-9]|10)$/i);
-    if (fatigueMatch) {
-      return fatigueMatch[1]; // Return score as string
-    }
+    if (fatigueMatch) return { type: 'fatigue', score: fatigueMatch[1] };
 
-    return null;
+    // Ignore other slash commands
+    if (text.startsWith('/')) return null;
+
+    return { type: 'chat', text };
   }
 }
 

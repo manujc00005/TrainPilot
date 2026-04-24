@@ -1,9 +1,12 @@
 import { config } from '../../config/index.js';
 import { ClaudeProvider } from './claude.provider.js';
+import { OpenAIProvider } from './openai.provider.js';
 import { getStorage } from '../storage/index.js';
 import { generateId } from '../../utils/hash.utils.js';
 import { logger } from '../../utils/logger.js';
-import type { LLMContext, LLMProvider, LLMResponse } from '../../types/llm.types.js';
+import type { LLMContext, LLMContextType, LLMProvider, LLMResponse } from '../../types/llm.types.js';
+import type { AthleteBaseline } from '../../types/baseline.types.js';
+import type { TrainingGoal } from '../../types/plan.types.js';
 import {
   DAILY_ANALYSIS_SYSTEM,
   buildDailyAnalysisPrompt,
@@ -16,6 +19,10 @@ import {
   COMPLIANCE_CHECK_SYSTEM,
   buildComplianceCheckPrompt,
 } from './prompts/compliance-check.prompt.js';
+import { BASELINE_SYSTEM, buildBaselinePrompt } from './prompts/baseline.prompt.js';
+import { CHAT_SYSTEM, buildChatPrompt } from './prompts/chat.prompt.js';
+import type { WeeklyMetrics } from '../../types/metrics.types.js';
+import type { Activity } from '../../types/activity.types.js';
 
 let provider: LLMProvider | null = null;
 
@@ -24,25 +31,46 @@ function getProvider(): LLMProvider {
     if (config.LLM_PROVIDER === 'claude') {
       provider = new ClaudeProvider();
     } else {
-      throw new Error('openai provider not yet implemented — use LLM_PROVIDER=claude');
+      provider = new OpenAIProvider();
     }
   }
   return provider;
 }
 
 export async function generateDailyAnalysis(ctx: LLMContext): Promise<string> {
-  return runLLM(ctx, DAILY_ANALYSIS_SYSTEM, buildDailyAnalysisPrompt(ctx));
+  return runLLM(ctx.contextType, DAILY_ANALYSIS_SYSTEM, buildDailyAnalysisPrompt(ctx));
 }
 
 export async function generateWeeklyPlan(ctx: LLMContext, nextWeekStart: Date): Promise<string> {
-  return runLLM(ctx, WEEKLY_PLANNING_SYSTEM, buildWeeklyPlanningPrompt(ctx, nextWeekStart));
+  return runLLM(ctx.contextType, WEEKLY_PLANNING_SYSTEM, buildWeeklyPlanningPrompt(ctx, nextWeekStart));
 }
 
 export async function generateComplianceCheck(ctx: LLMContext): Promise<string> {
-  return runLLM(ctx, COMPLIANCE_CHECK_SYSTEM, buildComplianceCheckPrompt(ctx));
+  return runLLM(ctx.contextType, COMPLIANCE_CHECK_SYSTEM, buildComplianceCheckPrompt(ctx));
 }
 
-async function runLLM(ctx: LLMContext, systemPrompt: string, userPrompt: string): Promise<string> {
+export async function generateChatResponse(
+  userMessage: string,
+  goal: TrainingGoal,
+  recentWeeks: WeeklyMetrics[],
+  recentActivities: Activity[],
+  baselineSummary?: string,
+): Promise<string> {
+  return runLLM('chat', CHAT_SYSTEM, buildChatPrompt(userMessage, goal, recentWeeks, recentActivities, baselineSummary));
+}
+
+export async function generateBaseline(
+  stats: Omit<AthleteBaseline, 'summaryText' | 'id' | 'generatedAt'>,
+  goal: TrainingGoal,
+): Promise<string> {
+  return runLLM('baseline', BASELINE_SYSTEM, buildBaselinePrompt(stats, goal));
+}
+
+async function runLLM(
+  contextType: LLMContextType,
+  systemPrompt: string,
+  userPrompt: string,
+): Promise<string> {
   const llm = getProvider();
   let result: LLMResponse;
 
@@ -53,12 +81,11 @@ async function runLLM(ctx: LLMContext, systemPrompt: string, userPrompt: string)
     throw err;
   }
 
-  // Persist audit log
   const storage = getStorage();
   await storage.saveLLMLog({
     id: generateId(),
     athleteId: config.STRAVA_ATHLETE_ID,
-    contextType: ctx.contextType,
+    contextType,
     model: result.model,
     inputTokens: result.inputTokens,
     outputTokens: result.outputTokens,
@@ -69,7 +96,7 @@ async function runLLM(ctx: LLMContext, systemPrompt: string, userPrompt: string)
   });
 
   logger.info(
-    { contextType: ctx.contextType, tokens: result.inputTokens + result.outputTokens },
+    { contextType, tokens: result.inputTokens + result.outputTokens },
     'LLM response generated',
   );
 

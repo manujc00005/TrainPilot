@@ -13,12 +13,13 @@ export async function runDailyAnalysis(): Promise<void> {
   const athleteId = config.STRAVA_ATHLETE_ID;
   const { start: weekStart } = getCurrentWeekBounds();
 
-  const [activities, plannedSessions, recentWeeks, goal, subjectiveFatigue] = await Promise.all([
+  const [activities, plannedSessions, recentWeeks, goal, subjectiveFatigue, baseline] = await Promise.all([
     storage.getActivitiesByWeek(weekStart, athleteId),
     storage.getPlannedSessionsByWeek(weekStart, athleteId),
     storage.getRecentWeeklyMetrics(4, athleteId),
     storage.getActiveGoal(athleteId),
     storage.getSubjectiveFatigue(athleteId, new Date()),
+    storage.getBaseline(athleteId),
   ]);
 
   if (!goal) {
@@ -43,6 +44,7 @@ export async function runDailyAnalysis(): Promise<void> {
     recentWeeksMetrics: recentWeeks,
     plannedSessions,
     recentActivities: activities.slice(0, 5),
+    baselineSummary: baseline?.summaryText,
   });
 
   await sendNotification({

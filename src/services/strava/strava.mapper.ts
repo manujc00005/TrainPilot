@@ -18,8 +18,7 @@ const STRAVA_TO_SPORT: Record<string, SportType> = {
 
 export function mapStravaActivity(raw: StravaActivity, athleteId: string): Activity | null {
   const sport = STRAVA_TO_SPORT[raw.sport_type] ?? STRAVA_TO_SPORT[raw.type];
-
-  if (!sport) return null; // Skip unsupported activity types
+  if (!sport) return null;
 
   const rawHash = createHash('sha256').update(JSON.stringify(raw)).digest('hex');
   const avgPace = raw.average_speed > 0 ? speedToSecsPerKm(raw.average_speed) : undefined;
@@ -31,18 +30,40 @@ export function mapStravaActivity(raw: StravaActivity, athleteId: string): Activ
     sport,
     startDate: parseStravaDate(raw.start_date),
     name: raw.name,
+    description: raw.description,
+
     distanceMeters: raw.distance,
     movingTimeSeconds: raw.moving_time,
     elapsedTimeSeconds: raw.elapsed_time,
+
     totalElevationGainMeters: raw.total_elevation_gain,
+    elevHighMeters: raw.elev_high,
+    elevLowMeters: raw.elev_low,
+
     averageSpeedMs: raw.average_speed,
+    maxSpeedMs: raw.max_speed > 0 ? raw.max_speed : undefined,
     averagePaceSecsPerKm: avgPace,
+
     averageHeartRate: raw.average_heartrate,
     maxHeartRate: raw.max_heartrate,
-    averageCadence: raw.average_cadence,
+
     averageWatts: raw.average_watts,
+    maxWatts: raw.max_watts,
+    weightedAverageWatts: raw.weighted_average_watts,
+    kilojoules: raw.kilojoules,
+
+    averageCadence: raw.average_cadence,
+    calories: raw.calories,
     sufferScore: raw.suffer_score,
     perceivedExertion: raw.perceived_exertion,
+
+    workoutType: raw.workout_type,
+    isTrainer: raw.trainer ?? false,
+    isCommute: raw.commute ?? false,
+    gearId: raw.gear_id,
+    prCount: raw.pr_count,
+    achievementCount: raw.achievement_count,
+
     rawHash,
     raw,
   };
