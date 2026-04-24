@@ -1,30 +1,35 @@
-app = "trainpilot"
-primary_region = "ams"
+# fly.toml app configuration file generated for trainpilot on 2026-04-24T12:51:59+02:00
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
+
+app = 'trainpilot'
+primary_region = 'ams'
 
 [build]
 
 [env]
-  PORT = "3000"
-  SQLITE_PATH = "/data/strava-coach.db"
-  STORAGE_BACKEND = "sqlite"
+  PORT = '3000'
+  SQLITE_PATH = '/data/strava-coach.db'
+  STORAGE_BACKEND = 'sqlite'
+
+[[mounts]]
+  source = 'trainpilot_data'
+  destination = '/data'
 
 [http_service]
   internal_port = 3000
   force_https = true
-  auto_stop_machines = false
+  auto_stop_machines = 'off'
   auto_start_machines = true
   min_machines_running = 1
 
   [http_service.concurrency]
-    type = "requests"
+    type = 'requests'
     hard_limit = 50
     soft_limit = 25
 
-[[mounts]]
-  source = "trainpilot_data"
-  destination = "/data"
-
 [[vm]]
-  cpu_kind = "shared"
+  cpu_kind = 'shared'
   cpus = 1
   memory_mb = 256
